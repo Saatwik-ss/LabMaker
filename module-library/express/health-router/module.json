@@ -1,0 +1,21 @@
+{
+  "id": "health-router",
+  "name": "Express health router",
+  "version": "1.0.0",
+  "description": "A small, tested Express router that exposes a health endpoint without coupling to application state.",
+  "category": "api",
+  "variants": [
+    {
+      "id": "express-typescript",
+      "name": "Express + TypeScript",
+      "description": "Mountable Express router for TypeScript projects.",
+      "stack": { "backend": "express" },
+      "requiredPackages": ["express"],
+      "files": [
+        { "source": "src/health.routes.ts", "target": "src/modules/health-router/health.routes.ts" },
+        { "source": "tests/health.routes.test.ts", "target": "src/modules/health-router/health.routes.test.ts" }
+      ],
+      "tests": ["src/modules/health-router/health.routes.test.ts"]
+    }
+  ]
+}
