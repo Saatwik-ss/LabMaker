@@ -76,7 +76,7 @@ export function createModuleHandler(
 
       runtime?.syncModelManager();
       try {
-        await runtime?.indexActive();
+        await runtime?.afterWorkspaceMutation();
       } catch {
         /* best effort */
       }
@@ -136,7 +136,7 @@ export function createModuleHandler(
         variantId: variantId || 'default',
       }, config || {});
 
-      await runtime?.refreshModelFromDiscovery();
+      await runtime?.afterWorkspaceMutation();
       res.json(result);
     } catch (error) {
       next(error);
@@ -173,7 +173,7 @@ export function createModuleHandler(
       if (catalog?.get(id) && runtime && projectManager) {
         const { workspaceRoot } = runtime.bindActive();
         const plan = catalog.plan(id, variantId, workspaceRoot);
-        if (!plan.compatible || plan.requiredPackages.length > 0) {
+        if (plan.implementationStatus !== 'stub' && (!plan.compatible || plan.requiredPackages.length > 0)) {
           return res.status(409).json({
             success: false,
             error: 'Module cannot be installed until compatibility requirements are resolved',
@@ -194,8 +194,7 @@ export function createModuleHandler(
           testStatus: 'untested',
           health: { status: 'untested', issues: [] },
         });
-        await runtime.indexActive();
-        await runtime.refreshModelFromDiscovery();
+        await runtime.afterWorkspaceMutation();
         return res.json({ success: true, message: `Installed source-backed module ${id}`, filesChanged, plan });
       }
 
@@ -240,8 +239,7 @@ export function createModuleHandler(
         });
       }
 
-      await runtime?.indexActive();
-      await runtime?.refreshModelFromDiscovery();
+      await runtime?.afterWorkspaceMutation();
 
       res.json({
         success: true,

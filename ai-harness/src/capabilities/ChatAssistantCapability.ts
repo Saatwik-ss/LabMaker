@@ -63,7 +63,7 @@ export class ChatAssistantCapability implements IAICapability<ChatInput, ChatOut
     // If an API key is available, call the real LLM provider
     if (effectiveKey) {
       try {
-        const streamResult = await this.streamFromLLM(input, effectiveKey, systemInstruction, contextQuery);
+        const streamResult = await this.streamFromLLM(input, effectiveKey, systemInstruction, contextQuery, projectIndex);
         return {
           reply: streamResult,
           contextUsed,
@@ -282,7 +282,8 @@ export class ChatAssistantCapability implements IAICapability<ChatInput, ChatOut
     input: ChatInput,
     apiKey: string,
     systemInstruction: string,
-    contextQuery: any
+    contextQuery: any,
+    projectIndex?: any
   ): Promise<string> {
     // Determine provider & endpoint
     let endpoint = 'https://api.groq.com/openai/v1/chat/completions';
@@ -311,7 +312,10 @@ export class ChatAssistantCapability implements IAICapability<ChatInput, ChatOut
       if (!candidateModels.includes('gpt-4o-mini')) candidateModels.push('gpt-4o-mini');
     }
 
-    // Compose clean system prompt strictly under 150 words
+    const effectivePrompt = input.prompt || (input as any).message || '';
+    const wantsFileList = /\b(what|which|show|list|display)\b[^?]*\b(files?|folders?|directory|workspace)\b|\bfiles?\s+(are|do|present|in)\b/i.test(effectivePrompt);
+
+    // Compose clean system prompt
     const rawInstruction = (input.systemPrompt || systemInstruction || 'You are Codex AI, an expert software architect and full-stack engineer.').trim();
     const systemParts = [
       rawInstruction,
@@ -319,19 +323,28 @@ export class ChatAssistantCapability implements IAICapability<ChatInput, ChatOut
       `Architecture: ${contextQuery.architectureSummary || 'Modular'}`,
     ];
 
+    const allFiles = projectIndex?.files ? Array.from(projectIndex.files.keys()) as string[] : [];
+    if (wantsFileList && allFiles.length > 0) {
+      systemParts.push(`Workspace files in active project (${allFiles.length}):\n${allFiles.slice(0, 100).map((f: string) => `- ${f}`).join('\n')}`);
+    } else if (allFiles.length > 0) {
+      systemParts.push(`Workspace files: ${allFiles.slice(0, 25).join(', ')}`);
+    }
+
     if (input.selectedFile) {
       systemParts.push(`Active file: ${input.selectedFile}`);
     }
     if (contextQuery.relevantFiles && contextQuery.relevantFiles.length > 0) {
-      systemParts.push(`Files: ${contextQuery.relevantFiles.slice(0, 3).map((f: any) => f.path).join(', ')}`);
+      systemParts.push(`Context files: ${contextQuery.relevantFiles.slice(0, 3).map((f: any) => f.path).join(', ')}`);
     }
 
     systemParts.push('Provide concise, production-ready code with language tags and direct technical solutions.');
 
     let cleanSystemPrompt = systemParts.join('\n\n').trim();
-    const sysWords = cleanSystemPrompt.split(/\s+/);
-    if (sysWords.length > 140) {
-      cleanSystemPrompt = sysWords.slice(0, 140).join(' ');
+    if (!wantsFileList) {
+      const sysWords = cleanSystemPrompt.split(/\s+/);
+      if (sysWords.length > 140) {
+        cleanSystemPrompt = sysWords.slice(0, 140).join(' ');
+      }
     }
 
     const promptMessages: Array<{ role: string; content: string }> = [

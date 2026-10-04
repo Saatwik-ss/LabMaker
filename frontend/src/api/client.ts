@@ -1,6 +1,4 @@
-export const API_BASE = (typeof window !== 'undefined' && window.location.port === '3000') 
-  ? '/api' 
-  : 'http://127.0.0.1:3001/api';
+export const API_BASE = '/api';
 
 export async function fetchApi<T>(endpoint: string, options?: RequestInit): Promise<T> {
   const url = `${API_BASE}${endpoint}`;

@@ -11,24 +11,33 @@ import {
 import { FileChange, ValidationResult } from '@codex/shared';
 import { Logger } from '../utils/Logger';
 
+import { AgentToolRegistry } from '../tools/AgentToolRegistry';
+
 export class AgentOrchestrator {
   private projectRoot: string;
   private indexer: IProjectIndexer;
   private moduleAdapter: IModuleAdapter;
   private capabilities: Map<string, IAICapability>;
+  private toolRegistry?: AgentToolRegistry;
   private logger: Logger;
 
   constructor(
     projectRoot: string,
     indexer: IProjectIndexer,
     moduleAdapter: IModuleAdapter,
-    capabilities: Map<string, IAICapability>
+    capabilities: Map<string, IAICapability>,
+    toolRegistry?: AgentToolRegistry
   ) {
     this.projectRoot = projectRoot;
     this.indexer = indexer;
     this.moduleAdapter = moduleAdapter;
     this.capabilities = capabilities;
+    this.toolRegistry = toolRegistry;
     this.logger = new Logger('AgentOrchestrator');
+  }
+
+  public setToolRegistry(registry: AgentToolRegistry): void {
+    this.toolRegistry = registry;
   }
 
   public setProjectRoot(newRoot: string): void {
@@ -102,7 +111,7 @@ export class AgentOrchestrator {
         try {
           const cursorResult = await cursorAgent.execute(
             request,
-            { projectRoot: this.projectRoot, indexer: this.indexer, moduleAdapter: this.moduleAdapter, credentials: request.credentials, systemPrompt: request.systemPrompt }
+            { projectRoot: this.projectRoot, indexer: this.indexer, moduleAdapter: this.moduleAdapter, credentials: request.credentials, systemPrompt: request.systemPrompt, toolRegistry: this.toolRegistry }
           );
           if (cursorResult && (cursorResult.changes?.length > 0 || (cursorResult.summary && !cursorResult.summary.includes('0 contextual files')))) {
             return cursorResult;

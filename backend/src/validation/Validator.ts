@@ -162,10 +162,27 @@ export class Validator {
         };
       }
 
-      return { passed: true, errors: [], warnings: [], totalIssues: 0 };
+      return {
+        passed: false,
+        errors: [{
+          file: 'workspace',
+          line: 0,
+          column: 0,
+          rule: 'eslint',
+          message: (result.stderr || result.stdout || 'eslint failed').slice(0, 500),
+          severity: 'error',
+        }],
+        warnings: [],
+        totalIssues: 1,
+      };
     } catch (error) {
       this.logger.warn('ESLint not available or failed:', error);
-      return { passed: true, errors: [], warnings: [], totalIssues: 0 };
+      return {
+        passed: false,
+        errors: [{ file: 'workspace', line: 0, column: 0, rule: 'eslint', message: String(error), severity: 'error' }],
+        warnings: [],
+        totalIssues: 1,
+      };
     }
   }
 
@@ -211,7 +228,12 @@ export class Validator {
       return { passed: true, errors: [], warnings: [], totalIssues: 0 };
     } catch (error) {
       this.logger.warn('Pylint not available or failed:', error);
-      return { passed: true, errors: [], warnings: [], totalIssues: 0 };
+      return {
+        passed: false,
+        errors: [{ file: 'workspace', line: 0, column: 0, rule: 'pylint', message: String(error), severity: 'error' }],
+        warnings: [],
+        totalIssues: 1,
+      };
     }
   }
 
@@ -246,14 +268,24 @@ export class Validator {
         }
       }
 
+      if (!result.success && errors.length === 0) {
+        errors.push({
+          file: 'workspace',
+          line: 0,
+          column: 0,
+          code: 'TSC',
+          message: (result.stderr || result.stdout || 'tsc failed').slice(0, 500),
+        });
+      }
+
       return {
-        passed: errors.length === 0,
+        passed: result.success,
         errors,
         totalErrors: errors.length,
       };
     } catch (error) {
       this.logger.warn('TypeScript check not available or failed:', error);
-      return { passed: true, errors: [], totalErrors: 0 };
+      return { passed: false, errors: [{ file: 'workspace', line: 0, column: 0, code: 'TSC', message: String(error) }], totalErrors: 1 };
     }
   }
 
@@ -294,22 +326,22 @@ export class Validator {
       }
 
       return {
-        passed: true,
+        passed: false,
         totalTests: 0,
         passedTests: 0,
-        failedTests: 0,
+        failedTests: 1,
         skippedTests: 0,
-        failures: [],
+        failures: [{ testName: 'npm test', error: (result.stderr || result.stdout || 'Could not parse test output').slice(0, 500) }],
       };
     } catch (error) {
       this.logger.warn('Test runner not available or failed:', error);
       return {
-        passed: true,
+        passed: false,
         totalTests: 0,
         passedTests: 0,
-        failedTests: 0,
+        failedTests: 1,
         skippedTests: 0,
-        failures: [],
+        failures: [{ testName: 'npm test', error: String(error) }],
       };
     }
   }

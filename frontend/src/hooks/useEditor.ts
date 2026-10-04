@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { getFileTree, readFile, writeFile as apiWriteFile, FileEntry } from '../api/files';
+import { notifyCodeChange } from '../utils/codeChangeEvents';
 
 export const useEditor = () => {
   const [files, setFiles] = useState<FileEntry[]>([]);
@@ -78,6 +79,12 @@ export const useEditor = () => {
       if (res.success) {
         setIsDirty(false);
         setError(null);
+        notifyCodeChange({
+          title: `Editor saved ${currentFile}`,
+          source: 'sync',
+          summary: `Saved ${currentFile}`,
+          files: [{ path: currentFile, action: 'modify' }],
+        });
       } else {
         throw new Error(res.error || 'Failed to save file');
       }

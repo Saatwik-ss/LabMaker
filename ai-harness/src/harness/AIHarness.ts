@@ -8,6 +8,7 @@ import {
   HarnessContext
 } from '../interfaces';
 import { ProjectIndexer } from '../indexing/ProjectIndexer';
+import { ModuleCatalogIndex } from '../indexing/ModuleCatalogIndex';
 import { ModuleAdapter } from '../modules/ModuleAdapter';
 import { AgentOrchestrator } from '../orchestration/AgentOrchestrator';
 import { ChatAssistantCapability } from '../capabilities/ChatAssistantCapability';
@@ -21,39 +22,45 @@ import { ModuleAdaptationCapability } from '../capabilities/ModuleAdaptationCapa
 import { TerminalExecutionCapability } from '../capabilities/TerminalExecutionCapability';
 import { PipelineTestingCapability } from '../capabilities/PipelineTestingCapability';
 import { CrystalBridge } from '../crystal/CrystalBridge';
+import { AgentToolHost, AgentToolRegistry } from '../tools/AgentToolRegistry';
 import { Logger } from '../utils/Logger';
+import * as path from 'path';
+import * as fs from 'fs';
 
 export class AIHarness implements IAIHarness {
   private _projectRoot: string;
+  private _catalogRoot: string;
   private _indexer: IProjectIndexer;
+  private _catalog: ModuleCatalogIndex;
   private _moduleAdapter: IModuleAdapter;
   private _capabilities: Map<string, IAICapability> = new Map();
   private _orchestrator: AgentOrchestrator;
   private _credentials: Record<string, string> = {};
   private _crystal: CrystalBridge;
   private _repoId: string = '';
+  private _toolRegistry: AgentToolRegistry;
+  private _hostOverrides: Partial<AgentToolHost> = {};
   private logger: Logger;
 
   constructor(projectRoot: string = process.cwd(), crystalUrl?: string) {
     this._projectRoot = projectRoot;
+    this._catalogRoot = this.guessCatalogRoot(projectRoot);
     this.logger = new Logger('AIHarness');
 
-    // 1. Crystal Intelligence Bridge
     this._crystal = new CrystalBridge(crystalUrl);
-
-    // 2. Core subsystems
     this._indexer = new ProjectIndexer();
+    this._catalog = new ModuleCatalogIndex(this._catalogRoot);
     this._moduleAdapter = new ModuleAdapter(this._indexer);
+    this._toolRegistry = new AgentToolRegistry(this.buildHost());
 
-    // 3. Register standard capability plugins
     this.registerStandardCapabilities();
 
-    // 4. Autonomous orchestrator
     this._orchestrator = new AgentOrchestrator(
       this._projectRoot,
       this._indexer,
       this._moduleAdapter,
-      this._capabilities
+      this._capabilities,
+      this._toolRegistry
     );
 
     this.logger.info(`Codex AI Harness initialized for root: ${this._projectRoot}`);
@@ -65,6 +72,10 @@ export class AIHarness implements IAIHarness {
 
   get indexer(): IProjectIndexer {
     return this._indexer;
+  }
+
+  get catalog(): ModuleCatalogIndex {
+    return this._catalog;
   }
 
   get moduleAdapter(): IModuleAdapter {
@@ -79,9 +90,25 @@ export class AIHarness implements IAIHarness {
     return this._crystal;
   }
 
+  public getToolRegistry(): AgentToolRegistry {
+    return this._toolRegistry;
+  }
+
+  public attachHost(overrides: Partial<AgentToolHost>): void {
+    this._hostOverrides = { ...this._hostOverrides, ...overrides };
+    this._toolRegistry = new AgentToolRegistry(this.buildHost());
+    this._orchestrator.setToolRegistry(this._toolRegistry);
+  }
+
+  public setCatalogRoot(catalogRoot: string): void {
+    this._catalogRoot = catalogRoot;
+    this._catalog.setCatalogRoot(catalogRoot);
+  }
+
   public setProjectRoot(newRoot: string): void {
     this._projectRoot = newRoot;
     this._orchestrator.setProjectRoot(newRoot);
+    this._toolRegistry.refreshRoot();
     this.logger.info(`Updated AI Harness project root`);
   }
 
@@ -115,6 +142,10 @@ export class AIHarness implements IAIHarness {
     }));
   }
 
+  public listAgentTools() {
+    return this._toolRegistry.listDefinitions();
+  }
+
   public async executeCapability<TInput = any, TOutput = any>(
     capabilityId: string,
     input: TInput
@@ -131,6 +162,7 @@ export class AIHarness implements IAIHarness {
       moduleAdapter: this._moduleAdapter,
       credentials: this._credentials,
       crystal: this._crystal,
+      toolRegistry: this._toolRegistry,
     };
 
     return capability.execute(input, context);
@@ -138,6 +170,32 @@ export class AIHarness implements IAIHarness {
 
   public async executeTask(task: AgentTaskRequest): Promise<AgentTaskResult> {
     return this._orchestrator.executeTask(task);
+  }
+
+  private buildHost(): AgentToolHost {
+    return {
+      getProjectRoot: () => this._hostOverrides.getProjectRoot?.() || this._projectRoot,
+      getCatalogRoot: () => this._hostOverrides.getCatalogRoot?.() || this._catalogRoot,
+      indexer: this._indexer,
+      crystal: this._crystal,
+      catalog: this._catalog,
+      getModel: this._hostOverrides.getModel,
+      afterMutation: this._hostOverrides.afterMutation,
+      onInstallModule: this._hostOverrides.onInstallModule,
+      updateArchitecture: this._hostOverrides.updateArchitecture,
+    };
+  }
+
+  private guessCatalogRoot(start: string): string {
+    let dir = path.resolve(start);
+    for (let i = 0; i < 8; i++) {
+      const candidate = path.join(dir, 'module-library');
+      if (fs.existsSync(candidate)) return candidate;
+      const parent = path.dirname(dir);
+      if (parent === dir) break;
+      dir = parent;
+    }
+    return path.join(start, 'module-library');
   }
 
   private registerStandardCapabilities(): void {

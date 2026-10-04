@@ -1,0 +1,18 @@
+{
+  "id": "backend-shell",
+  "name": "Backend shell",
+  "version": "0.1.0",
+  "description": "Express API bootstrap (app, health, router mount). Source files will be added later.",
+  "category": "backend",
+  "variants": [
+    {
+      "id": "express-typescript",
+      "name": "Express + TypeScript",
+      "description": "Express server shell.",
+      "stack": { "backend": "express" },
+      "requiredPackages": ["express"],
+      "files": [],
+      "tests": []
+    }
+  ]
+}

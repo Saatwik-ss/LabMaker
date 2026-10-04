@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useModules } from '../hooks/useModules';
 import { useProject } from '../context/ProjectContext';
 import { Card } from '../components/ui/Card';
@@ -46,6 +46,20 @@ export const Modules: React.FC = () => {
   };
 
   const installedModules = currentProject?.model?.modules || [];
+
+  useEffect(() => {
+    const onChange = () => {
+      refreshProjects();
+    };
+    window.addEventListener('codex-code-change', onChange);
+    window.addEventListener('codex-code-changed', onChange);
+    window.addEventListener('codex-module-added', onChange);
+    return () => {
+      window.removeEventListener('codex-code-change', onChange);
+      window.removeEventListener('codex-code-changed', onChange);
+      window.removeEventListener('codex-module-added', onChange);
+    };
+  }, [refreshProjects]);
 
   const showToast = (text: string, type: 'success' | 'error' = 'success') => {
     setMessage({ text, type });

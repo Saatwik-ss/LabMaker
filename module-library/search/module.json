@@ -1,0 +1,36 @@
+{
+  "id": "search",
+  "name": "Search",
+  "version": "0.1.0",
+  "description": "Full-text search with multiple backends. Source variants will be added later; install registers placement on the application model.",
+  "category": "api",
+  "variants": [
+    {
+      "id": "elasticsearch",
+      "name": "Elasticsearch",
+      "description": "Full-text search powered by Elasticsearch.",
+      "stack": { "backend": "express" },
+      "requiredPackages": ["@elastic/elasticsearch"],
+      "files": [],
+      "tests": []
+    },
+    {
+      "id": "sqlite-fts",
+      "name": "SQLite FTS5",
+      "description": "Lightweight full-text search using SQLite FTS5 (no external service required).",
+      "stack": { "backend": "express" },
+      "requiredPackages": ["better-sqlite3"],
+      "files": [],
+      "tests": []
+    },
+    {
+      "id": "react-search-ui",
+      "name": "React Search UI",
+      "description": "Search bar and results components for React.",
+      "stack": { "frontend": "react" },
+      "requiredPackages": ["react"],
+      "files": [],
+      "tests": []
+    }
+  ]
+}

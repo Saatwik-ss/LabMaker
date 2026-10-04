@@ -1,0 +1,18 @@
+{
+  "id": "frontend-shell",
+  "name": "Frontend shell",
+  "version": "0.1.0",
+  "description": "React application shell (layout, routing, state). Source files will be added later.",
+  "category": "frontend",
+  "variants": [
+    {
+      "id": "react-vite",
+      "name": "React + Vite",
+      "description": "Client shell for Vite React apps.",
+      "stack": { "frontend": "react" },
+      "requiredPackages": ["react", "vite"],
+      "files": [],
+      "tests": []
+    }
+  ]
+}

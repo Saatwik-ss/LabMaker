@@ -1,0 +1,36 @@
+{
+  "id": "realtime",
+  "name": "Real-Time",
+  "version": "0.1.0",
+  "description": "Real-time bidirectional communication using WebSocket or Server-Sent Events. Source variants will be added later; install registers placement on the application model.",
+  "category": "services",
+  "variants": [
+    {
+      "id": "websocket",
+      "name": "WebSocket (ws)",
+      "description": "Bidirectional WebSocket server using the ws library.",
+      "stack": { "backend": "express", "frontend": "react" },
+      "requiredPackages": ["ws"],
+      "files": [],
+      "tests": []
+    },
+    {
+      "id": "socketio",
+      "name": "Socket.IO",
+      "description": "Full-featured real-time engine with rooms, namespaces, and auto-reconnect.",
+      "stack": { "backend": "express", "frontend": "react" },
+      "requiredPackages": ["socket.io", "socket.io-client"],
+      "files": [],
+      "tests": []
+    },
+    {
+      "id": "sse",
+      "name": "Server-Sent Events",
+      "description": "One-way server-push updates via SSE (no extra package needed).",
+      "stack": { "backend": "express", "frontend": "react" },
+      "requiredPackages": [],
+      "files": [],
+      "tests": []
+    }
+  ]
+}

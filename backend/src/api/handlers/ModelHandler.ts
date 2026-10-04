@@ -208,7 +208,7 @@ export const ${cleanId.replace(/-/g, '_')}Client = new ${pascalId}Adapter();
       }
 
       try {
-        await runtime.indexActive();
+        await runtime.afterWorkspaceMutation();
       } catch {
         /* best effort */
       }
@@ -299,7 +299,7 @@ export const ${cleanId.replace(/-/g, '_')}Client = new ${pascalId}Adapter();
       }
 
       try {
-        await runtime.indexActive();
+        await runtime.afterWorkspaceMutation();
       } catch {
         /* best effort */
       }

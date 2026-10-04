@@ -1,11 +1,12 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { FileOperations } from '../../tools/FileOperations';
 import { EditSnapshotStore } from '../../core/EditSnapshotStore';
+import { CodexRuntime } from '../../core/CodexRuntime';
 import * as fs from 'fs';
 import * as path from 'path';
 import { ZipArchive } from 'archiver';
 
-export function createFileHandler(fileOperations: FileOperations, editSnapshots?: EditSnapshotStore): Router {
+export function createFileHandler(fileOperations: FileOperations, editSnapshots?: EditSnapshotStore, runtime?: CodexRuntime): Router {
   const router = Router();
 
   // GET /download?path=... - download single file or entire zipped folder
@@ -97,6 +98,7 @@ export function createFileHandler(fileOperations: FileOperations, editSnapshots?
       }
 
       const result = fileOperations.writeFile(path, content);
+      runtime?.scheduleAfterWorkspaceMutation();
       res.json(result);
     } catch (error) {
       next(error);
@@ -116,6 +118,7 @@ export function createFileHandler(fileOperations: FileOperations, editSnapshots?
       }
 
       const result = fileOperations.deleteFile(filePath);
+      runtime?.scheduleAfterWorkspaceMutation();
       res.json(result);
     } catch (error) {
       next(error);
@@ -132,9 +135,11 @@ export function createFileHandler(fileOperations: FileOperations, editSnapshots?
 
       if (isDirectory) {
         const result = fileOperations.createDirectory(itemPath);
+        runtime?.scheduleAfterWorkspaceMutation();
         return res.json(result);
       } else {
         const result = fileOperations.writeFile(itemPath, '');
+        runtime?.scheduleAfterWorkspaceMutation();
         return res.json(result);
       }
     } catch (error) {
@@ -156,6 +161,7 @@ export function createFileHandler(fileOperations: FileOperations, editSnapshots?
       }
 
       const result = fileOperations.writeFile(filePath, fileData);
+      runtime?.scheduleAfterWorkspaceMutation();
       res.json(result);
     } catch (error) {
       next(error);

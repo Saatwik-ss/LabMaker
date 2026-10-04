@@ -12,6 +12,7 @@ import { CommandRunner } from '../tools/CommandRunner';
 import { Logger } from '../utils/Logger';
 import { Project, ApplicationModel } from '@codex/shared';
 import { findCodexRoot } from './codexPaths';
+import * as path from 'path';
 
 export class CodexRuntime {
   readonly codexRoot: string;
@@ -52,6 +53,62 @@ export class CodexRuntime {
     );
     this.editSnapshots = new EditSnapshotStore();
     this.bindActive();
+    this.attachHarnessHost();
+  }
+
+  private mutationTimer: ReturnType<typeof setTimeout> | null = null;
+
+  private attachHarnessHost(): void {
+    this.aiHarness.setCatalogRoot(path.join(this.codexRoot, 'module-library'));
+    this.aiHarness.attachHost({
+      getProjectRoot: () => this.projectManager.getWorkspaceRoot(),
+      getCatalogRoot: () => path.join(this.codexRoot, 'module-library'),
+      getModel: () => this.projectManager.getCurrentProject().model,
+      afterMutation: async (_source, _files) => {
+        await this.afterWorkspaceMutation();
+      },
+      onInstallModule: async (mod) => {
+        const curr = this.projectManager.getCurrentProject();
+        this.projectManager.addModuleToProject(curr.id, {
+          name: mod.id,
+          type: (mod.category as any) || 'custom',
+          version: '1.0.0',
+          description: mod.description,
+          codeGenerated: false,
+          status: 'active',
+        });
+        this.syncModelManager();
+      },
+      updateArchitecture: async (payload) => {
+        this.bindActive();
+        this.syncModelManager();
+        const action = String(payload.action || '');
+        if (action === 'add_node' && payload.node) {
+          this.modelManager.addService(payload.node as any);
+        } else if (action === 'add_edge' && payload.edge) {
+          this.modelManager.addRelationship(payload.edge as any);
+        } else if (action === 'remove_node' && payload.id) {
+          this.modelManager.removeService(String(payload.id));
+        }
+        const model = this.persistCurrentModelFromManager();
+        return model;
+      },
+    });
+  }
+
+  public async afterWorkspaceMutation(): Promise<void> {
+    this.lastIndexedRoot = '';
+    await this.indexActive();
+    await this.refreshModelFromDiscovery();
+  }
+
+  public scheduleAfterWorkspaceMutation(debounceMs = 400): void {
+    if (this.mutationTimer) clearTimeout(this.mutationTimer);
+    this.mutationTimer = setTimeout(() => {
+      this.afterWorkspaceMutation().catch((err) => {
+        this.logger.warn(`Debounced workspace sync failed: ${err?.message || err}`);
+      });
+    }, debounceMs);
   }
 
   public bindActive(): { project: Project; workspaceRoot: string; repoId: string } {
@@ -136,8 +193,7 @@ export class CodexRuntime {
     const { project, repoId } = this.bindActive();
     this.lastIndexedRoot = '';
     const written = this.workspaceStore.writeImportedFiles(project.id, files);
-    await this.indexActive();
-    await this.refreshModelFromDiscovery();
+    await this.afterWorkspaceMutation();
     return { written, repoId };
   }
 

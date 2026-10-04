@@ -6,7 +6,15 @@ import { CodexRuntime } from '../../core/CodexRuntime';
 export interface ChatStreamRequestBody {
   message: string;
   conversationHistory?: Array<{ role: 'user' | 'assistant' | 'system'; content: string }>;
-  mode?: 'chat' | 'agent';
+  /**
+   * Unified entry point:
+   * - 'auto' (default, recommended): single chat+agent mode. The LLM itself decides
+   *   whether the query needs agentic mode and, if so, uses all MCP tools.
+   *   Implemented by routing to the tool-capable agent loop, which answers
+   *   directly (no tools) for pure Q&A and calls tools otherwise.
+   * - 'chat' / 'agent': explicit manual overrides for the legacy split UI.
+   */
+  mode?: 'chat' | 'agent' | 'auto';
   model?: string;
   apiKey?: string;
   groqApiKey?: string;
@@ -82,7 +90,7 @@ export function createChatHandler(
     const {
       message,
       conversationHistory = [],
-      mode = 'chat',
+      mode = 'auto',
       model = 'llama-3.1-8b-instant',
       apiKey,
       groqApiKey,
@@ -144,17 +152,33 @@ export function createChatHandler(
         aiHarness.setCredentials({ openaiApiKey: apiKey });
       }
 
-      if (mode === 'agent' || enablePlanning) {
-        // AGENT MODE: Autonomous loop with planning, tools, and diff proposals
+      const isMutationRequest =
+        /^(change|modify|update|edit|write|rewrite|replace)\s+(the\s+)?(content|text|code)\s+of\b/i.test(message.trim()) ||
+        /^(create|write|add|delete|remove)\s+(a\s+|the\s+)?(file|component|route|service|module)\b/i.test(message.trim()) ||
+        /^(change|update|edit|rewrite)\s+([a-zA-Z0-9_.-]+\.(md|ts|tsx|js|jsx|json|html|css))\b/i.test(message.trim());
+
+      // Unified mode: 'auto' is the single chat+agent entry point. It always goes
+      // through the tool-capable agent loop; the LLM decides per query whether
+      // agentic mode is needed (tool calls) or a direct answer suffices (no tools).
+      // Explicit 'agent' / legacy regex heuristics still force the agent path.
+      const useAgentLoop = mode === 'auto' || mode === 'agent' || enablePlanning || isMutationRequest;
+
+      if (useAgentLoop) {
+        // UNIFIED / AGENT MODE: single tool-capable loop. The LLM decides whether
+        // the query needs agentic tools or a direct answer.
         sendEvent({
           type: 'planning',
-          content: 'Starting Agent loop with codebase awareness...',
+          content:
+            mode === 'auto'
+              ? 'Unified mode: LLM decides chat vs agentic path, with all MCP tools available...'
+              : 'Starting Agent loop with codebase awareness...',
         });
 
         const agentResult = await aiHarness.executeCapability('cursor-agent', {
           prompt: message,
           type: 'feature',
           systemPrompt,
+          model: normalizedModel,
           credentials: {
             openaiApiKey: apiKey,
             groqApiKey: effectiveGroqKey,
@@ -228,7 +252,7 @@ export function createChatHandler(
       const {
         message,
         conversationHistory = [],
-        mode = 'chat',
+        mode = 'auto',
         model = 'llama-3.1-8b-instant',
         apiKey,
         groqApiKey,
@@ -261,17 +285,25 @@ export function createChatHandler(
 
       const normalizedModel = normalizeLlmModel(model);
 
-      if (mode === 'agent') {
+      const isMutationRequest =
+        /^(change|modify|update|edit|write|rewrite|replace)\s+(the\s+)?(content|text|code)\s+of\b/i.test(message.trim()) ||
+        /^(create|write|add|delete|remove)\s+(a\s+|the\s+)?(file|component|route|service|module)\b/i.test(message.trim()) ||
+        /^(change|update|edit|rewrite)\s+([a-zA-Z0-9_.-]+\.(md|ts|tsx|js|jsx|json|html|css))\b/i.test(message.trim());
+
+      // Unified: 'auto' routes to the tool-capable loop; the LLM decides
+      // chat (no tools) vs agentic (tools) per query.
+      if (mode === 'auto' || mode === 'agent' || isMutationRequest) {
         const agentResult = await aiHarness.executeCapability('cursor-agent', {
           prompt: message,
           type: 'feature',
           systemPrompt,
+          model: normalizedModel,
           credentials: {
             openaiApiKey: apiKey,
             groqApiKey: effectiveGroqKey,
           },
         });
-        return res.json({ success: true, result: agentResult });
+        return res.json({ success: true, mode: 'auto', result: agentResult });
       }
 
       const chatOutput = await aiHarness.executeCapability('chat-assistant', {

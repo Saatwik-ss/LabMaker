@@ -168,15 +168,29 @@ export class PipelineTestingCapability implements IAICapability<PipelineTestingI
       // 2a. Type checking
       if (hasPkg) {
         const tscRes = await runCmd('npx tsc --noEmit', 45000);
-        if (!tscRes.success && tscRes.stderr) {
-          const lines = tscRes.stderr.split('\n').filter(l => l.includes('error TS'));
-          checks.typeCheck.errorCount = lines.length;
+        checks.typeCheck.passed = tscRes.success;
+        if (!tscRes.success) {
+          const lines = (tscRes.stderr || tscRes.stdout || '').split('\n').filter(l => l.includes('error TS') || l.trim());
+          checks.typeCheck.errorCount = lines.length || 1;
           checks.typeCheck.errors = lines.slice(0, 5);
-          checks.typeCheck.passed = lines.length === 0;
         }
       }
 
-      // 2b. Unit Tests
+      // 2b. Linting
+      if (hasPkg) {
+        const lintRes = await runCmd('npx eslint src --ext .ts,.tsx,.js,.jsx', 45000);
+        checks.linting.passed = lintRes.success;
+        if (!lintRes.success) {
+          checks.linting.issueCount = 1;
+          checks.linting.errors = [(lintRes.stderr || lintRes.stdout || 'eslint failed').split('\n').slice(0, 5).join('\n')];
+        }
+      } else {
+        checks.linting.passed = false;
+        checks.linting.issueCount = 1;
+        checks.linting.errors = ['No package.json; linter not run (does not pass by default).'];
+      }
+
+      // 2c. Unit Tests
       if (hasPkg) {
         const testRes = await runCmd('npm test -- --passWithNoTests', 45000);
         if (!testRes.success && testRes.exitCode !== 0) {
@@ -240,7 +254,8 @@ export class PipelineTestingCapability implements IAICapability<PipelineTestingI
       checks.typeCheck.passed &&
       checks.build.passed &&
       checks.schema.passed &&
-      checks.unitTests.passed;
+      checks.unitTests.passed &&
+      checks.linting.passed;
 
     // Summary generation
     let summary = '';

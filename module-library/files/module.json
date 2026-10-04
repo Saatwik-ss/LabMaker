@@ -1,0 +1,36 @@
+{
+  "id": "files",
+  "name": "File Management",
+  "version": "0.1.0",
+  "description": "File upload, storage, and download with multiple backends (S3, local disk, GCS). Source variants will be added later; install registers placement on the application model.",
+  "category": "api",
+  "variants": [
+    {
+      "id": "s3",
+      "name": "AWS S3",
+      "description": "File upload/download using AWS S3 with pre-signed URLs.",
+      "stack": { "backend": "express" },
+      "requiredPackages": ["@aws-sdk/client-s3", "multer"],
+      "files": [],
+      "tests": []
+    },
+    {
+      "id": "local",
+      "name": "Local disk",
+      "description": "File storage on local disk with multer middleware.",
+      "stack": { "backend": "express" },
+      "requiredPackages": ["multer"],
+      "files": [],
+      "tests": []
+    },
+    {
+      "id": "react-upload",
+      "name": "React Upload UI",
+      "description": "Drag-and-drop file upload component for React.",
+      "stack": { "frontend": "react" },
+      "requiredPackages": ["react"],
+      "files": [],
+      "tests": []
+    }
+  ]
+}

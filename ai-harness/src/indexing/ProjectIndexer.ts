@@ -122,8 +122,17 @@ export class ProjectIndexer implements IProjectIndexer {
 
   public async queryContext(query: ContextQuery): Promise<RetrievedContext> {
     const promptTerms = query.prompt.toLowerCase().split(/\s+/).filter(t => t.length > 2);
-    const allIndices = Array.from(this.cache.values());
-    const projectIndex = allIndices[allIndices.length - 1];
+    let projectIndex: ProjectIndex | undefined;
+    if (query.projectRoot) {
+      const resolved = path.resolve(query.projectRoot);
+      projectIndex = this.cache.get(resolved);
+      if (!projectIndex) {
+        projectIndex = await this.indexProject(resolved);
+      }
+    } else {
+      const allIndices = Array.from(this.cache.values());
+      projectIndex = allIndices[allIndices.length - 1];
+    }
 
     if (!projectIndex) {
       return {

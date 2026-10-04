@@ -38,7 +38,7 @@ export interface ChatMessageItem {
   id: string;
   role: 'user' | 'assistant';
   content: string;
-  mode?: 'chat' | 'agent';
+  mode?: 'chat' | 'agent' | 'auto';
   timestamp: string;
   agentPlan?: {
     goal?: string;
@@ -56,8 +56,9 @@ export const Chat: React.FC = () => {
   const historyKey = `codex_chat_history_${projectId}`;
   const draftKey = `codex_chat_draft_${projectId}`;
 
-  // Mode and Model State
-  const [chatMode, setChatMode] = useState<'chat' | 'agent'>('chat');
+  // Unified Mode: 'auto' (default) lets the LLM decide per query whether
+  // agentic mode (all MCP tools) is needed. 'chat'/'agent' are manual overrides.
+  const [chatMode, setChatMode] = useState<'chat' | 'agent' | 'auto'>('auto');
   const [models, setModels] = useState<ChatModelInfo[]>([]);
   const [selectedModel, setSelectedModel] = useState<string>('llama-3.1-8b-instant');
 
@@ -218,7 +219,7 @@ export const Chat: React.FC = () => {
     // Prepare streaming state
     setIsStreaming(true);
     setStreamingContent('');
-    setStatusLine(chatMode === 'agent' ? 'Initializing agent planner...' : 'Connecting to AI model...');
+    setStatusLine(chatMode === 'chat' ? 'Connecting to AI model...' : 'Unified mode: LLM decides chat vs agentic path...');
     setActivePlan(null);
     setActiveTerminalLogs([]);
     setActiveChanges([]);
@@ -255,7 +256,7 @@ export const Chat: React.FC = () => {
           selectedFile: activeFile || undefined,
           selectedCode: selectedCode || undefined,
           systemPrompt: settings.systemPrompt,
-          enablePlanning: chatMode === 'agent',
+          enablePlanning: chatMode !== 'chat',
           signal: abortCtrl.signal,
         },
         event => {
@@ -279,7 +280,7 @@ export const Chat: React.FC = () => {
               setStreamingContent(accumulatedContent);
             }
           } else if (event.type === 'tool_call') {
-            setStatusLine(`Agent executing: ${event.tool || 'tool'}...`);
+            setStatusLine(`Agent executing: ${(event as any).name || event.tool || 'tool'}...`);
           } else if (event.type === 'tool_result') {
             if (event.terminal) {
               terminalLogs = [...terminalLogs, event.terminal];
@@ -329,7 +330,7 @@ export const Chat: React.FC = () => {
       const assistantMessage: ChatMessageItem = {
         id: `asst-${Date.now()}`,
         role: 'assistant',
-        content: accumulatedContent || (chatMode === 'agent' ? 'Agent task completed.' : 'Ready for next instruction.'),
+        content: accumulatedContent || (chatMode === 'chat' ? 'Ready for next instruction.' : 'Agent task completed.'),
         mode: chatMode,
         timestamp: new Date().toISOString(),
         agentPlan: currentPlan || undefined,
@@ -344,12 +345,19 @@ export const Chat: React.FC = () => {
       setActiveTerminalLogs([]);
       setActiveChanges([]);
 
-      // Prompt code change notification if files were modified
+      // Prompt code change notification if files were modified.
+      // In unified/auto mode the agent writes directly, so mark applied whenever
+      // tools actually mutated files (not only for the explicit agent override).
       if (proposedChanges.length > 0) {
+        if (chatMode !== 'chat') {
+          setPatchStatus(prev => ({ ...prev, [assignedRequestId]: 'applied' }));
+        }
         notifyCodeChange({
-          title: `AI Assistant: ${chatMode === 'agent' ? 'Agent Proposed Edits' : 'Code Changes Generated'}`,
+          title: `AI Assistant: ${chatMode === 'chat' ? 'Code Changes Generated' : 'Agent wrote workspace files'}`,
           source: 'agent',
-          summary: `Generated proposals for ${proposedChanges.length} file(s).`,
+          summary: chatMode === 'chat'
+            ? `Generated proposals for ${proposedChanges.length} file(s).`
+            : `Wrote ${proposedChanges.length} file(s) via agent tools. Graph and editor will refresh.`,
           files: proposedChanges.map(c => ({
             path: c.path,
             action: c.action,
@@ -432,14 +440,24 @@ export const Chat: React.FC = () => {
 
         {/* Mode & Model Controls */}
         <div className="flex items-center gap-2">
-          {/* Dual Mode Switcher */}
+          {/* Unified Mode Switcher: Auto (LLM decides) + manual overrides */}
           <div className="flex items-center bg-gray-900 border border-gray-800 rounded p-0.5">
+            <button
+              onClick={() => setChatMode('auto')}
+              className={`flex items-center gap-1 px-2.5 py-1 rounded text-xs font-medium transition-colors ${
+                chatMode === 'auto' ? 'bg-emerald-600 text-white' : 'text-gray-400 hover:text-white'
+              }`}
+              title="Auto (Recommended): single unified mode. The LLM decides per query whether agentic mode with all MCP tools is needed."
+            >
+              <IconBot className="w-3.5 h-3.5" />
+              <span>Auto</span>
+            </button>
             <button
               onClick={() => setChatMode('chat')}
               className={`flex items-center gap-1 px-2.5 py-1 rounded text-xs font-medium transition-colors ${
                 chatMode === 'chat' ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white'
               }`}
-              title="Chat / Ask Mode: Instant explanations, code snippets, architectural Q&A"
+              title="Ask override: force conversational answers without tools"
             >
               <IconSparkles className="w-3.5 h-3.5" />
               <span>Ask</span>
@@ -449,7 +467,7 @@ export const Chat: React.FC = () => {
               className={`flex items-center gap-1 px-2.5 py-1 rounded text-xs font-medium transition-colors ${
                 chatMode === 'agent' ? 'bg-purple-600 text-white' : 'text-gray-400 hover:text-white'
               }`}
-              title="Agent Mode: Autonomous plan checklist, tool calls, and proposed file diffs"
+              title="Agent override: force autonomous tool loop (all 22 MCP tools, validation, diffs)"
             >
               <IconListTodo className="w-3.5 h-3.5" />
               <span>Agent</span>
@@ -553,14 +571,16 @@ export const Chat: React.FC = () => {
         {history.length === 0 && !isStreaming && (
           <div className="h-full flex flex-col items-center justify-center text-center p-6 space-y-6">
             <div className="w-14 h-14 rounded-2xl bg-gray-900 border border-gray-800 flex items-center justify-center text-blue-400 shadow-lg">
-              {chatMode === 'agent' ? <IconListTodo className="w-7 h-7" /> : <IconSparkles className="w-7 h-7" />}
+              {chatMode === 'chat' ? <IconSparkles className="w-7 h-7" /> : chatMode === 'agent' ? <IconListTodo className="w-7 h-7" /> : <IconBot className="w-7 h-7" />}
             </div>
             <div className="max-w-md space-y-2">
               <h3 className="text-lg font-bold text-white">
-                {chatMode === 'agent' ? 'Autonomous Coding Agent' : 'Codex AI Developer Assistant'}
+                {chatMode === 'auto' ? 'Unified Assistant (Auto)' : chatMode === 'agent' ? 'Autonomous Coding Agent' : 'Codex AI Developer Assistant'}
               </h3>
               <p className="text-xs text-gray-400 leading-relaxed">
-                {chatMode === 'agent'
+                {chatMode === 'auto'
+                  ? 'Single unified mode: the LLM decides per query whether to answer directly or use all 21 MCP tools (recall files/modules, minimal edits, tests, graph sync).'
+                  : chatMode === 'agent'
                   ? 'Autonomous multi-step planner. Generates plans, inspects repository files, proposes code diffs, and validates changes.'
                   : 'Ask any question about your codebase, stack, or architecture. Real-time streaming powered by fast LPU inference.'}
               </p>
@@ -744,7 +764,7 @@ export const Chat: React.FC = () => {
         {isStreaming && (
           <div className="flex gap-3 justify-start">
             <div className="w-7 h-7 rounded-lg bg-gray-800 border border-gray-700 flex items-center justify-center text-blue-400 shrink-0 mt-0.5 animate-pulse">
-              {chatMode === 'agent' ? <IconBot className="w-4 h-4" /> : <IconSparkles className="w-4 h-4" />}
+              {chatMode === 'chat' ? <IconSparkles className="w-4 h-4" /> : <IconBot className="w-4 h-4" />}
             </div>
 
             <div className="max-w-2xl rounded-xl p-4 bg-gray-900 border border-gray-800 text-gray-200 rounded-bl-none shadow-md w-full space-y-3">
@@ -864,7 +884,9 @@ export const Chat: React.FC = () => {
                 }
               }}
               placeholder={
-                chatMode === 'agent'
+                chatMode === 'auto'
+                  ? 'Ask or build anything — LLM auto-decides chat vs agent tools (e.g. explain, add auth module, fix types)...'
+                  : chatMode === 'agent'
                   ? 'Give an autonomous task (e.g. create a feature, fix errors, refactor modules)...'
                   : `Ask anything about ${currentProject?.name || 'the codebase'}...`
               }

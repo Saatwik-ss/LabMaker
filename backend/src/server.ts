@@ -1,3 +1,5 @@
+import path from 'path';
+import fs from 'fs';
 import express, { Application, Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import { Logger } from './utils/Logger';
@@ -34,10 +36,32 @@ export function setupServer(): Application {
   // API Routes
   app.use('/api', createApiRouter());
 
-  // 404 handler
-  app.use((req: Request, res: Response) => {
-    res.status(404).json({ error: 'Not found' });
-  });
+  // Serve static frontend files in production if available
+  const frontendCandidates = [
+    path.resolve(__dirname, '../../frontend/dist'),
+    path.resolve(__dirname, '../frontend/dist'),
+    path.resolve(process.cwd(), 'frontend/dist'),
+    path.resolve(process.cwd(), '../frontend/dist'),
+    '/opt/render/project/src/frontend/dist',
+  ];
+  const staticPath = frontendCandidates.find((p) => fs.existsSync(p));
+
+  if (staticPath) {
+    logger.info(`Serving static frontend from: ${staticPath}`);
+    app.use(express.static(staticPath));
+    app.get('*', (req: Request, res: Response) => {
+      if (req.path.startsWith('/api') || req.path === '/health') {
+        return res.status(404).json({ error: 'Not found' });
+      }
+      res.sendFile(path.join(staticPath, 'index.html'));
+    });
+  } else {
+    logger.warn('Frontend dist directory not found. Static serving disabled.');
+    // 404 handler
+    app.use((req: Request, res: Response) => {
+      res.status(404).json({ error: 'Not found' });
+    });
+  }
 
   // Error handler
   app.use((err: any, req: Request, res: Response, next: NextFunction) => {

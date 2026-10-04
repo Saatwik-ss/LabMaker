@@ -77,6 +77,7 @@ export interface ContextQuery {
   maxFiles?: number;
   targetPaths?: string[];
   includeSymbols?: boolean;
+  projectRoot?: string;
 }
 
 /**
@@ -198,6 +199,15 @@ export interface HarnessContext {
   systemPrompt?: string;
   /** Optional bridge to Crystal's indexed, tool-calling agent runtime. */
   crystal?: CrystalBridge;
+  toolRegistry?: {
+    listDefinitions: () => unknown[];
+    execute: (name: string, args: Record<string, unknown>) => Promise<{
+      content: string;
+      mutating: boolean;
+      files?: string[];
+      diff?: { path: string; action: string; newContent?: string };
+    }>;
+  };
 }
 
 /**

@@ -77,16 +77,21 @@ export class ModuleAdaptationCapability implements IAICapability<ModuleAdaptatio
     // Local TypeScript fallback via ModuleAdapter
     this.logger.info(`Running local TypeScript module adapter fallback for: ${input.moduleData.name}`);
     if (action === 'analyze') {
+      const { scanModuleCompatibility } = await import('../modules/CompatibilityScanner');
+      const scan = scanModuleCompatibility(targetPath, input.moduleData.id || input.moduleData.name || '');
       const profile = await context.moduleAdapter.inspectProject(targetPath);
       const plan = await context.moduleAdapter.determineAdaptations(profile, input.moduleData);
       return {
         action: 'analyze',
         analysis: {
-          compatible: true,
-          issues: [],
-          conflicts: [],
+          compatible: scan.compatible && scan.conflictStatus !== 'conflict',
+          issues: scan.issues,
+          conflicts: scan.conflicts,
           required_packages: plan.requiredPackages,
-        },
+          conflictStatus: scan.conflictStatus,
+          mergeChoices: scan.mergeChoices,
+          detectedPatterns: scan.detectedPatterns,
+        } as any,
       };
     } else {
       const integration = await context.moduleAdapter.adaptAndIntegrate(

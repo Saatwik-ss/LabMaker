@@ -44,7 +44,7 @@ export function createApiRouter(): Router {
   router.use('/agent', createAgentHandler(orchestrator, aiHarness));
   router.use('/model', createModelHandler(runtime));
   router.use('/modules', createModuleHandler(moduleManager, projectManager, aiHarness.moduleAdapter, runtime));
-  router.use('/files', createFileHandler(fileOperations, editSnapshots));
+  router.use('/files', createFileHandler(fileOperations, editSnapshots, runtime));
   router.use('/validate', createValidationHandler(validator));
   router.use('/settings', createSettingsHandler(runtime.codexRoot));
   router.use('/terminal', createTerminalHandler(runtime));
@@ -54,15 +54,33 @@ export function createApiRouter(): Router {
     res.json({ capabilities: aiHarness.listCapabilities() });
   });
 
-  // The same schemas Crystal gives its function-calling agent. The UI can use
-  // these to explain exactly which workspace actions the active LLM may take.
+  // Return the harness AgentToolRegistry schemas as the primary/authoritative
+  // tool list. Crystal schemas are appended as optional extras when Crystal is
+  // reachable but they never change the source label or block the response.
   aiRouter.get('/tools', async (_req: Request, res: Response, next: NextFunction) => {
     try {
-      const health = await aiHarness.crystal.checkHealth();
-      if (health.isAvailable) {
-        return res.json({ source: 'crystal', tools: await aiHarness.crystal.getAgentTools() });
+      const harnessTools = aiHarness.listAgentTools();
+      let crystalExtras: any[] = [];
+      let crystalStatus = 'unavailable';
+      try {
+        const health = await aiHarness.crystal.checkHealth();
+        if (health.isAvailable) {
+          crystalStatus = 'available';
+          try {
+            crystalExtras = await aiHarness.crystal.getAgentTools();
+          } catch {
+            crystalExtras = [];
+          }
+        }
+      } catch {
+        // Crystal is optional — swallow connection errors entirely
       }
-      return res.json({ source: 'harness', tools: aiHarness.listCapabilities() });
+      return res.json({
+        source: 'harness',
+        tools: harnessTools,
+        crystalStatus,
+        crystalExtras,
+      });
     } catch (err) {
       next(err);
     }
@@ -169,8 +187,7 @@ export function createApiRouter(): Router {
       runtime.bindActive();
       const { requestId, edits } = req.body;
       const result = editSnapshots.apply(fileOperations, requestId || `req-${Date.now()}`, edits || []);
-      await runtime.indexActive();
-      await runtime.refreshModelFromDiscovery();
+      await runtime.afterWorkspaceMutation();
       res.json(result);
     } catch (err) {
       next(err);
@@ -182,7 +199,7 @@ export function createApiRouter(): Router {
       runtime.bindActive();
       const { requestId } = req.body;
       const result = editSnapshots.undo(fileOperations, requestId);
-      await runtime.indexActive();
+      await runtime.afterWorkspaceMutation();
       res.json(result);
     } catch (err) {
       next(err);

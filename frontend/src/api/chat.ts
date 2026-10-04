@@ -6,10 +6,12 @@ export interface ChatModelInfo {
   description?: string;
 }
 
+export type ChatMode = 'chat' | 'agent' | 'auto';
+
 export interface StreamChatOptions {
   message: string;
   conversationHistory?: Array<{ role: 'user' | 'assistant' | 'system'; content: string }>;
-  mode: 'chat' | 'agent';
+  mode: ChatMode;
   model: string;
   apiKey?: string;
   groqApiKey?: string;

@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { useProject } from '../context/ProjectContext';
 import { Spinner } from '../components/ui/Spinner';
 import { Button } from '../components/ui/Button';
@@ -45,6 +45,20 @@ export const Architecture: React.FC = () => {
   const [relLabel, setRelLabel] = useState('');
 
   const model = currentProject?.model;
+
+  useEffect(() => {
+    const onChange = () => {
+      refreshProjects();
+    };
+    window.addEventListener('codex-code-change', onChange);
+    window.addEventListener('codex-code-changed', onChange);
+    window.addEventListener('codex-module-added', onChange);
+    return () => {
+      window.removeEventListener('codex-code-change', onChange);
+      window.removeEventListener('codex-code-changed', onChange);
+      window.removeEventListener('codex-module-added', onChange);
+    };
+  }, [refreshProjects]);
 
   const { nodes, relationships } = useMemo(() => {
     if (!model) return { nodes: [], relationships: [] };

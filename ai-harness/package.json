@@ -4,9 +4,13 @@
   "description": "Codex AI Development Harness and Intelligence Subsystem",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "bin": {
+    "codex-mcp": "dist/mcp/stdio.js"
+  },
   "scripts": {
     "build": "tsc",
-    "type-check": "tsc --noEmit"
+    "type-check": "tsc --noEmit",
+    "mcp": "node dist/mcp/stdio.js"
   },
   "dependencies": {
     "@codex/shared": "*",

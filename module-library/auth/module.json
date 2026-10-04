@@ -1,0 +1,27 @@
+{
+  "id": "auth",
+  "name": "Authentication",
+  "version": "0.1.0",
+  "description": "Login, registration, current user, and protected routes. Source variants will be added later; install registers placement on the application model.",
+  "category": "services",
+  "variants": [
+    {
+      "id": "express-jwt",
+      "name": "Express + JWT",
+      "description": "JWT auth for Express backends.",
+      "stack": { "backend": "express" },
+      "requiredPackages": ["express", "jsonwebtoken"],
+      "files": [],
+      "tests": []
+    },
+    {
+      "id": "react-forms",
+      "name": "React auth forms",
+      "description": "Login and register UI for React.",
+      "stack": { "frontend": "react" },
+      "requiredPackages": ["react"],
+      "files": [],
+      "tests": []
+    }
+  ]
+}

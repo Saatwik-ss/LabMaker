@@ -33,6 +33,9 @@ export interface ModulePlan {
   issues: string[];
   requiredPackages: string[];
   files: Array<{ source: string; target: string }>;
+  implementationStatus: 'ready' | 'stub' | 'incomplete';
+  conflictStatus: 'compatible' | 'conflict' | 'missing_impl';
+  mergeChoices: Array<'keep' | 'merge' | 'replace' | 'cancel'>;
 }
 
 /**
@@ -73,18 +76,49 @@ export class ModuleCatalog {
     const installedPackages = { ...(packageJson.dependencies || {}), ...(packageJson.devDependencies || {}) };
     const requiredPackages = (variant.requiredPackages || []).filter((pkg) => !installedPackages[pkg]);
 
+    let missingSources = 0;
     for (const file of variant.files) {
       const sourcePath = path.join(this.moduleDirectory(id), file.source);
-      if (!fs.existsSync(sourcePath)) issues.push(`Catalog source is missing: ${file.source}`);
+      if (!fs.existsSync(sourcePath)) {
+        missingSources += 1;
+        issues.push(`Catalog source is missing: ${file.source}`);
+      }
       if (path.isAbsolute(file.target) || file.target.split(/[\\/]+/).includes('..')) {
         issues.push(`Unsafe module target: ${file.target}`);
       }
     }
 
-    return { module, variant, compatible: issues.length === 0, issues, requiredPackages, files: variant.files };
+    const implementationStatus: ModulePlan['implementationStatus'] =
+      variant.files.length === 0 ? 'stub' : missingSources > 0 ? 'incomplete' : 'ready';
+    if (implementationStatus === 'stub') {
+      issues.push('Module is a catalog stub: source files are not authored yet.');
+    }
+    const unsafe = issues.some((i) => i.startsWith('Unsafe'));
+    const conflictStatus: ModulePlan['conflictStatus'] =
+      implementationStatus === 'stub' || implementationStatus === 'incomplete' ? 'missing_impl' : 'compatible';
+
+    return {
+      module,
+      variant,
+      compatible: !unsafe && (implementationStatus === 'ready' || implementationStatus === 'stub'),
+      issues,
+      requiredPackages,
+      files: variant.files,
+      implementationStatus,
+      conflictStatus,
+      mergeChoices: ['keep', 'merge', 'replace', 'cancel'],
+    };
   }
 
   install(plan: ModulePlan, fileOps: FileOperations): Array<{ path: string; action: 'create'; newContent: string; lineCount: { added: number; removed: number; modified: number } }> {
+    if (plan.issues.some((i) => i.startsWith('Unsafe'))) throw new Error(plan.issues.join('; '));
+    if (plan.implementationStatus === 'stub' || plan.files.length === 0) {
+      const placeholder = `# ${plan.module.name}\n\nCatalog stub (${plan.variant.id}). Implementation source will be added later.\n\n${plan.module.description}\n`;
+      const target = `src/modules/${plan.module.id}/README.md`;
+      const result = fileOps.writeFile(target, placeholder);
+      if (!result.success) throw new Error(result.error || `Could not write ${target}`);
+      return [{ path: target, action: 'create' as const, newContent: placeholder, lineCount: { added: placeholder.split('\n').length, removed: 0, modified: 0 } }];
+    }
     if (!plan.compatible) throw new Error(plan.issues.join('; '));
     if (plan.requiredPackages.length > 0) {
       throw new Error(`Install blocked until required packages are available: ${plan.requiredPackages.join(', ')}`);

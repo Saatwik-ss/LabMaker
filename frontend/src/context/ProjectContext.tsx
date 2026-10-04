@@ -59,6 +59,25 @@ export const ProjectProvider: React.FC<{ children: React.ReactNode }> = ({ child
     refreshProjects();
   }, [refreshProjects]);
 
+  useEffect(() => {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const onCodeChange = () => {
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(() => {
+        refreshProjects();
+      }, 350);
+    };
+    window.addEventListener('codex-code-change', onCodeChange);
+    window.addEventListener('codex-code-changed', onCodeChange);
+    window.addEventListener('codex-module-added', onCodeChange);
+    return () => {
+      if (timer) clearTimeout(timer);
+      window.removeEventListener('codex-code-change', onCodeChange);
+      window.removeEventListener('codex-code-changed', onCodeChange);
+      window.removeEventListener('codex-module-added', onCodeChange);
+    };
+  }, [refreshProjects]);
+
   const selectProject = async (id: string) => {
     setLoading(true);
     try {

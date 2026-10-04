@@ -1,0 +1,36 @@
+{
+  "id": "notifications",
+  "name": "Notifications",
+  "version": "0.1.0",
+  "description": "Multi-channel notifications (email, SMS, push, in-app). Source variants will be added later; install registers placement on the application model.",
+  "category": "services",
+  "variants": [
+    {
+      "id": "email-smtp",
+      "name": "Email (SMTP / Nodemailer)",
+      "description": "Send transactional emails via SMTP using Nodemailer.",
+      "stack": { "backend": "express" },
+      "requiredPackages": ["nodemailer"],
+      "files": [],
+      "tests": []
+    },
+    {
+      "id": "email-sendgrid",
+      "name": "Email (SendGrid)",
+      "description": "Send transactional emails via SendGrid API.",
+      "stack": { "backend": "express" },
+      "requiredPackages": ["@sendgrid/mail"],
+      "files": [],
+      "tests": []
+    },
+    {
+      "id": "in-app",
+      "name": "In-App Notifications",
+      "description": "Real-time in-app notifications via SSE with a React notification bell.",
+      "stack": { "backend": "express", "frontend": "react" },
+      "requiredPackages": [],
+      "files": [],
+      "tests": []
+    }
+  ]
+}

@@ -3,10 +3,10 @@
  * and provides domain-specific context analysis.
  */
 export function normalizeLlmModel(
-  model?: string,
+  model?: unknown,
   defaultModel = 'llama-3.1-8b-instant'
 ): string {
-  if (!model) return defaultModel;
+  if (!model || typeof model !== 'string') return defaultModel;
   const m = model.trim().toLowerCase();
 
   // Groq model deprecation mappings
@@ -46,8 +46,8 @@ export function normalizeLlmModel(
   return model.trim();
 }
 
-export function isDeprecatedGroqModel(model?: string): boolean {
-  if (!model) return false;
+export function isDeprecatedGroqModel(model?: unknown): boolean {
+  if (!model || typeof model !== 'string') return false;
   const m = model.trim().toLowerCase();
   return (
     m.includes('llama-3.1-70b') ||

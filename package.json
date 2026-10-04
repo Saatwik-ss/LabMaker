@@ -10,6 +10,7 @@
     "frontend"
   ],
   "scripts": {
+    "start": "node backend/dist/index.js",
     "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
     "dev:backend": "npm run dev --workspace=@codex/backend",
     "dev:frontend": "npm run dev --workspace=@codex/frontend",

@@ -1,0 +1,27 @@
+{
+  "id": "crud",
+  "name": "CRUD",
+  "version": "0.1.0",
+  "description": "Generic create/read/update/delete API and list/form UI. Source will be added later.",
+  "category": "api",
+  "variants": [
+    {
+      "id": "express-rest",
+      "name": "Express REST",
+      "description": "REST handlers for Express.",
+      "stack": { "backend": "express" },
+      "requiredPackages": ["express"],
+      "files": [],
+      "tests": []
+    },
+    {
+      "id": "react-ui",
+      "name": "React CRUD UI",
+      "description": "List, form, and delete confirmation components.",
+      "stack": { "frontend": "react" },
+      "requiredPackages": ["react"],
+      "files": [],
+      "tests": []
+    }
+  ]
+}

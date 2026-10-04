@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "codex": {
+      "command": "node",
+      "args": ["ai-harness/dist/mcp/stdio.js"],
+      "env": {
+        "CODEX_PROJECT_ROOT": ".",
+        "CODEX_CATALOG_ROOT": "./module-library"
+      }
+    }
+  }
+}

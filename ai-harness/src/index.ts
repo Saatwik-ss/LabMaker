@@ -24,6 +24,12 @@ export { PipelineTestingCapability } from './capabilities/PipelineTestingCapabil
 // Export Crystal bridge
 export { CrystalBridge, CrystalHealthStatus, AgentStreamChunk, AgentExecutionSummary } from './crystal/CrystalBridge';
 
+export { AgentToolRegistry } from './tools/AgentToolRegistry';
+export { WorkspaceFs } from './tools/WorkspaceFs';
+export { ModuleCatalogIndex } from './indexing/ModuleCatalogIndex';
+export { CodexMcpServer } from './mcp/CodexMcpServer';
+export { scanModuleCompatibility } from './modules/CompatibilityScanner';
+
 // Export utils
 export { Logger } from './utils/Logger';
 export { normalizeLlmModel, isDeprecatedGroqModel, detectProjectDomain } from './utils/ModelNormalizer';

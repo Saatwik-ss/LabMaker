@@ -9,7 +9,7 @@ const logger = new Logger('Main');
 
 async function main() {
   try {
-    const port = parseInt(process.env.CODEX_API_PORT || '3001', 10);
+    const port = parseInt(process.env.PORT || process.env.CODEX_API_PORT || '3001', 10);
     const app = setupServer();
 
     app.listen(port, '0.0.0.0', () => {
